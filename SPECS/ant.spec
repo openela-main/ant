@@ -28,27 +28,22 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-%bcond_without tests
-%bcond_without javadoc
-
-# Disabled for now, asi it doesn't work (tests fail) and nobody needs it
-%bcond_with junit5
-
 %global ant_home %{_datadir}/ant
 
 Name:           ant
-Version:        1.10.5
+Version:        1.10.9
 Release:        1%{?dist}
-Epoch:          0
 Summary:        Java build tool
 Summary(it):    Tool per la compilazione di programmi java
 Summary(fr):    Outil de compilation pour java
 License:        ASL 2.0
 URL:            https://ant.apache.org/
-Source0:        https://www.apache.org/dist/ant/source/apache-ant-%{version}-src.tar.bz2
+Source0:        https://archive.apache.org/dist/ant/source/apache-ant-%{version}-src.tar.bz2
 Source2:        apache-ant-1.8.ant.conf
 # manpage
 Source3:        ant.asciidoc
+
+Patch0:         %{name}-build.xml.patch
 
 BuildRequires:  javapackages-local
 BuildRequires:  java-devel >= 1:1.8.0
@@ -76,15 +71,15 @@ BuildRequires:  mvn(xml-resolver:xml-resolver)
 BuildRequires:  mvn(org.hamcrest:hamcrest-core)
 BuildRequires:  mvn(org.hamcrest:hamcrest-library)
 
-%if %{with junit5}
-BuildRequires:  junit5
-%endif
-
 # Theoretically Ant might be usable with just JRE, but typical Ant
 # workflow requires full JDK, so we recommend it here.
-%{?fedora:Recommends}%{!?fedora:Requires}: java-devel >= 1:1.8.0
+%if 0%{?fedora} || 0%{?rhel} > 7
+Recommends: java-devel >= 1:1.8.0
+%else
+Requires: java-devel >= 1:1.8.0
+%endif
 
-Requires:       %{name}-lib = %{epoch}:%{version}-%{release}
+Requires:       %{name}-lib = %{version}-%{release}
 # Require full javapackages-tools since the ant script uses
 # /usr/share/java-utils/java-functions
 Requires:       javapackages-tools
@@ -120,7 +115,7 @@ Core part of Apache Ant that can be used as a library.
 
 %package jmf
 Summary:        Optional jmf tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description jmf
 Optional jmf tasks for %{name}.
@@ -130,7 +125,7 @@ Taches jmf optionelles pour %{name}.
 
 %package swing
 Summary:        Optional swing tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description swing
 Optional swing tasks for %{name}.
@@ -140,7 +135,7 @@ Taches swing optionelles pour %{name}.
 
 %package antlr
 Summary:        Optional antlr tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description antlr
 Optional antlr tasks for %{name}.
@@ -150,7 +145,7 @@ Taches antlr optionelles pour %{name}.
 
 %package apache-bsf
 Summary:        Optional apache bsf tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-bsf
 Optional apache bsf tasks for %{name}.
@@ -160,7 +155,7 @@ Taches apache bsf optionelles pour %{name}.
 
 %package apache-resolver
 Summary:        Optional apache resolver tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-resolver
 Optional apache resolver tasks for %{name}.
@@ -170,7 +165,7 @@ Taches apache resolver optionelles pour %{name}.
 
 %package commons-logging
 Summary:        Optional commons logging tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description commons-logging
 Optional commons logging tasks for %{name}.
@@ -180,7 +175,7 @@ Taches commons logging optionelles pour %{name}.
 
 %package commons-net
 Summary:        Optional commons net tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description commons-net
 Optional commons net tasks for %{name}.
@@ -189,21 +184,10 @@ Optional commons net tasks for %{name}.
 Taches commons net optionelles pour %{name}.
 
 # Disable because we don't ship the dependencies
-%if 0
-%package jai
-Summary:        Optional jai tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
-
-%description jai
-Optional jai tasks for %{name}.
-
-%description jai -l fr
-Taches jai optionelles pour %{name}.
-%endif
 
 %package apache-bcel
 Summary:        Optional apache bcel tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-bcel
 Optional apache bcel tasks for %{name}.
@@ -213,7 +197,7 @@ Taches apache bcel optionelles pour %{name}.
 
 %package apache-log4j
 Summary:        Optional apache log4j tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-log4j
 Optional apache log4j tasks for %{name}.
@@ -223,7 +207,7 @@ Taches apache log4j optionelles pour %{name}.
 
 %package apache-oro
 Summary:        Optional apache oro tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-oro
 Optional apache oro tasks for %{name}.
@@ -233,7 +217,7 @@ Taches apache oro optionelles pour %{name}.
 
 %package apache-regexp
 Summary:        Optional apache regexp tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-regexp
 Optional apache regexp tasks for %{name}.
@@ -243,7 +227,7 @@ Taches apache regexp optionelles pour %{name}.
 
 %package apache-xalan2
 Summary:        Optional apache xalan2 tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description apache-xalan2
 Optional apache xalan2 tasks for %{name}.
@@ -251,9 +235,16 @@ Optional apache xalan2 tasks for %{name}.
 %description apache-xalan2 -l fr
 Taches apache xalan2 optionelles pour %{name}.
 
+%package imageio
+Summary:        Optional imageio tasks for %{name}
+Requires:       %{name} = %{version}-%{release}
+
+%description imageio
+Optional imageio tasks for %{name}.
+
 %package javamail
 Summary:        Optional javamail tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description javamail
 Optional javamail tasks for %{name}.
@@ -263,7 +254,7 @@ Taches javamail optionelles pour %{name}.
 
 %package jdepend
 Summary:        Optional jdepend tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description jdepend
 Optional jdepend tasks for %{name}.
@@ -273,7 +264,7 @@ Taches jdepend optionelles pour %{name}.
 
 %package jsch
 Summary:        Optional jsch tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description jsch
 Optional jsch tasks for %{name}.
@@ -283,7 +274,7 @@ Taches jsch optionelles pour %{name}.
 
 %package junit
 Summary:        Optional junit tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description junit
 Optional junit tasks for %{name}.
@@ -291,28 +282,16 @@ Optional junit tasks for %{name}.
 %description junit -l fr
 Taches junit optionelles pour %{name}.
 
-%if %{with junit5}
-%package junit5
-Summary:        Optional junit5 tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
-
-%description junit5
-Optional junit5 tasks for %{name}.
-
-%description junit5 -l fr
-Taches junit5 optionelles pour %{name}.
-%endif
-
 %package testutil
 Summary:        Test utility classes for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description testutil
 Test utility tasks for %{name}.
 
 %package xz
 Summary:        Optional xz tasks for %{name}
-Requires:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name} = %{version}-%{release}
 
 %description xz
 Optional xz tasks for %{name}.
@@ -342,12 +321,14 @@ Javadoc pour %{name}.
 
 %prep
 %setup -q -n apache-ant-%{version}
-
-# Fix class-path-in-manifest rpmlint warning
-%pom_xpath_remove 'attribute[@name="Class-Path"]' build.xml
+%patch0 -p0
 
 # clean jar files
 find . -name "*.jar" | xargs -t rm
+
+# Use our own version of javamail
+%pom_remove_dep com.sun.mail:jakarta.mail src/etc/poms/ant-javamail
+%pom_add_dep com.sun.mail:javax.mail::compile src/etc/poms/ant-javamail
 
 # failing testcases. TODO see why
 rm src/tests/junit/org/apache/tools/ant/types/selectors/SignedSelectorTest.java \
@@ -358,9 +339,6 @@ rm src/tests/junit/org/apache/tools/ant/types/selectors/SignedSelectorTest.java 
 
 #install jars
 build-jar-repository -s -p lib/optional antlr bcel javamail/mailapi jdepend junit log4j-1 oro regexp bsf commons-logging commons-net jsch xalan-j2 xml-commons-resolver xalan-j2-serializer hamcrest/core hamcrest/library xz-java
-%if %{with junit5}
-build-jar-repository -s -p lib/optional junit5 opentest4j
-%endif
 
 # fix hardcoded paths in ant script and conf
 cp -p %{SOURCE2} %{name}.conf
@@ -383,16 +361,8 @@ mv LICENSE.utf8 LICENSE
 # We want a hard dep on antlr
 %pom_xpath_remove pom:optional src/etc/poms/ant-antlr/pom.xml
 
-%if %{without junit5}
-%pom_xpath_inject 'target[@name="javadocs"]/javadoc/packageset' '<exclude name="**/junitlauncher"/>' build.xml
-%endif
-
 %build
-%{ant} jars test-jar
-
-%if %with javadoc
-%{ant} javadocs
-%endif
+%{ant} jars test-jar javadocs
 
 # typeset the manpage
 mkdir man
@@ -401,10 +371,9 @@ xmlto man man/%{name}.xml -o man
 
 #remove empty jai and netrexx jars. Due to missing dependencies they contain only manifests.
 rm -fr build/lib/ant-jai.jar build/lib/ant-netrexx.jar
-%if %{without junit5}
-rm -f build/lib/ant-junitlauncher.jar
-%endif
 # -----------------------------------------------------------------------------
+
+rm -fr build/lib/ant-junitlauncher.jar
 
 %install
 # ANT_HOME and subdirs
@@ -478,6 +447,7 @@ echo "log4j12 ant/ant-apache-log4j" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/ap
 echo "oro ant/ant-apache-oro" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/apache-oro
 echo "regexp ant/ant-apache-regexp" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/apache-regexp
 echo "xalan-j2 xalan-j2-serializer ant/ant-apache-xalan2" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/apache-xalan2
+echo "ant/ant-imageio" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/imageio
 echo "javamail jaf ant/ant-javamail" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/javamail
 echo "jdepend ant/ant-jdepend" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/jdepend
 echo "jsch ant/ant-jsch" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/jsch
@@ -486,15 +456,9 @@ echo "junit hamcrest/core ant/ant-junit4" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name
 echo "testutil ant/ant-testutil" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/testutil
 echo "xz-java ant/ant-xz" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/xz
 
-%if %{with junit5}
-echo "junit5 hamcrest/core junit opentest4j ant/ant-junitlauncher" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/junitlauncher
-%endif
-
-%if %with javadoc
 # javadoc
 mkdir -p $RPM_BUILD_ROOT%{_javadocdir}/%{name}
 cp -pr build/javadocs/* $RPM_BUILD_ROOT%{_javadocdir}/%{name}
-%endif
 
 # fix link between manual and javadoc
 (cd manual; ln -sf %{_javadocdir}/%{name} api)
@@ -503,10 +467,9 @@ cp -pr build/javadocs/* $RPM_BUILD_ROOT%{_javadocdir}/%{name}
 install -d -m 755 %{buildroot}%{_mandir}/man1/
 install -p -m 644 man/%{name}.1 %{buildroot}%{_mandir}/man1/%{name}.1
 
-%if %with tests
 %check
-LC_ALL=en_US.utf8 %{ant} test
-%endif
+export LC_ALL=C.UTF-8
+%{ant} test
 
 %files
 %doc KEYS README WHATSNEW
@@ -564,11 +527,6 @@ LC_ALL=en_US.utf8 %{ant} test
 %config(noreplace) %{_sysconfdir}/%{name}.d/commons-net
 
 # Disable as we dont ship the dependencies
-%if 0
-%files jai -f .mfiles-jai
-%{ant_home}/lib/%{name}-jai.jar
-%config(noreplace) %{_sysconfdir}/%{name}.d/jai
-%endif
 
 %files apache-bcel -f .mfiles-apache-bcel
 %{ant_home}/lib/%{name}-apache-bcel.jar
@@ -590,6 +548,10 @@ LC_ALL=en_US.utf8 %{ant} test
 %files apache-xalan2 -f .mfiles-apache-xalan2
 %{ant_home}/lib/%{name}-apache-xalan2.jar
 %config(noreplace) %{_sysconfdir}/%{name}.d/apache-xalan2
+
+%files imageio -f .mfiles-imageio
+%{ant_home}/lib/%{name}-imageio.jar
+%config(noreplace) %{_sysconfdir}/%{name}.d/imageio
 
 %files javamail -f .mfiles-javamail
 %{ant_home}/lib/%{name}-javamail.jar
@@ -616,12 +578,6 @@ LC_ALL=en_US.utf8 %{ant} test
 %{ant_home}/etc/junit-frames-saxon.xsl
 %{ant_home}/etc/junit-noframes-saxon.xsl
 
-%if %{with junit5}
-%files junit5 -f .mfiles-junitlauncher
-%{ant_home}/lib/%{name}-junitlauncher.jar
-%config(noreplace) %{_sysconfdir}/%{name}.d/junitlauncher
-%endif
-
 %files testutil -f .mfiles-testutil
 %{ant_home}/lib/%{name}-testutil.jar
 %config(noreplace) %{_sysconfdir}/%{name}.d/testutil
@@ -634,15 +590,35 @@ LC_ALL=en_US.utf8 %{ant} test
 %license LICENSE NOTICE
 %doc manual/*
 
-%if %with javadoc
 %files javadoc
 %license LICENSE NOTICE
 %{_javadocdir}/%{name}
-%endif
 
 # -----------------------------------------------------------------------------
 
 %changelog
+* Tue Jan 30 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-1
+- Update to upstream version 1.10.9
+
+* Tue Nov 05 2019 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.10.7-2
+- Mass rebuild for javapackages-tools 201902
+
+* Wed Oct 16 2019 Marian Koncek <mkoncek@redhat.com> - 1.10.7-1
+- Update to upstream version 1.10.7
+
+* Fri May 24 2019 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.10.6-2
+- Mass rebuild for javapackages-tools 201901
+
+* Wed May 08 2019 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.10.6-1
+- Update to upstream version 1.10.6
+
+* Mon Nov 19 2018 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 0:1.10.5-3
+- Use C.UTF-8 locale
+  See https://fedoraproject.org/wiki/Changes/Remove_glibc-langpacks-all_from_buildroot
+
+* Mon Aug 20 2018 Mat Booth <mat.booth@redhat.com> - 0:1.10.5-2
+- Enable building the optional junit5 module
+
 * Thu Aug 02 2018 Michael Simacek <msimacek@redhat.com> - 0:1.10.5-1
 - Update to upstream version 1.10.5
 
