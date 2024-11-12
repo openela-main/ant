@@ -34,7 +34,7 @@
 
 Name:           ant
 Version:        1.10.9
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Java build tool
 Summary(it):    Tool per la compilazione di programmi java
 Summary(fr):    Outil de compilation pour java
@@ -46,6 +46,7 @@ Source2:        apache-ant-1.8.ant.conf
 Source3:        ant.asciidoc
 
 Patch0:         %{name}-build.xml.patch
+Patch1:         %{name}-openjdk-jpeg-cmyk.patch
 
 BuildRequires:  asciidoc
 BuildRequires:  xmlto
@@ -327,6 +328,7 @@ Javadoc pour %{name}.
 %prep
 %setup -q -n apache-ant-%{version}
 %patch0 -p0
+%patch1 -p1
 
 # clean jar files
 find . -name "*.jar" | xargs -t rm
@@ -505,7 +507,7 @@ install -p -m 644 man/%{name}.1 %{buildroot}%{_mandir}/man1/%{name}.1
 
 %if %{without bootstrap}
 %check
-LC_ALL=C.UTF-8 %{ant} test
+LC_ALL=C.UTF-8 %{ant} -Doffline=true test
 %endif
 
 %files
@@ -636,6 +638,10 @@ LC_ALL=C.UTF-8 %{ant} test
 # -----------------------------------------------------------------------------
 
 %changelog
+* Thu Jun 13 2024 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.10.9-8
+- Fix test failures due to JPEG CMYK support in OpenJDK
+- Resolves: RHEL-5354
+
 * Mon Aug 09 2021 Mohan Boddu <mboddu@redhat.com> - 1.10.9-7
 - Rebuilt for IMA sigs, glibc 2.34, aarch64 flags
   Related: rhbz#1991688

@@ -1,0 +1,29 @@
+diff --git a/src/tests/junit/org/apache/tools/ant/taskdefs/optional/image/ImageIOTest.java b/src/tests/junit/org/apache/tools/ant/taskdefs/optional/image/ImageIOTest.java
+index 537a4e8ffaf3af22..bfc8a011ad4b21f8 100644
+--- a/src/tests/junit/org/apache/tools/ant/taskdefs/optional/image/ImageIOTest.java
++++ b/src/tests/junit/org/apache/tools/ant/taskdefs/optional/image/ImageIOTest.java
+@@ -28,6 +28,7 @@ import org.junit.rules.ExpectedException;
+ 
+ import java.io.File;
+ 
++import static org.hamcrest.Matchers.anyOf;
+ import static org.hamcrest.Matchers.containsString;
+ import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertThat;
+@@ -132,13 +133,13 @@ public class ImageIOTest {
+ 
+     @Test
+     public void testFailOnError() {
+-        final String message = "Unsupported Image Type";
+         thrown.expect(BuildException.class);
+-        thrown.expectMessage(message);
+         try {
+             buildRule.executeTarget("testFailOnError");
+         } finally {
+-            assertThat(buildRule.getLog(), containsString(message));
++            assertThat(buildRule.getLog(),
++                anyOf(containsString("Unsupported Image Type"),
++                    containsString("Unknown image type")));
+         }
+     }
+ 
