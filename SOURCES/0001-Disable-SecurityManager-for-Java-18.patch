@@ -1,0 +1,596 @@
+From e00b30674254bb4fc31ad2114eec808791b0d1dc Mon Sep 17 00:00:00 2001
+From: Marián Konček <mkoncek@redhat.com>
+Date: Wed, 16 Oct 2024 13:06:34 +0200
+Subject: [PATCH] Disable SecurityManager for Java 18+
+
+Upstream:
+* https://github.com/apache/ant/commit/689b6ea90ee1fbad580a437137d80609c9336f12
+* https://github.com/apache/ant/commit/e2c68c4931dee7141385af671c4358e511f7c4d7
+* https://github.com/apache/ant/commit/2821ba0d14f932df056e89afa7217e09d5eab270
+* https://github.com/apache/ant/commit/3c03f542411614a07bce7f5cc86ca4da0af39624
+
+---
+ apache-ant-1.10.9/manual/Tasks/java.html      | 10 +++-
+ apache-ant-1.10.9/manual/Tasks/junit.html     |  8 +++
+ .../manual/Types/permissions.html             | 12 ++++
+ .../main/org/apache/tools/ant/MagicNames.java | 11 ++++
+ .../tools/ant/taskdefs/ExecuteJava.java       |  4 +-
+ .../org/apache/tools/ant/taskdefs/Java.java   |  3 +-
+ .../ant/taskdefs/condition/JavaVersion.java   | 40 +++++++++++--
+ .../apache/tools/ant/types/Permissions.java   | 43 +++++++++++++-
+ .../tools/ant/util/SecurityManagerUtil.java   | 57 +++++++++++++++++++
+ .../util/optional/NoExitSecurityManager.java  |  2 +
+ .../apache/tools/ant/taskdefs/JavaTest.java   | 19 ++++++-
+ .../taskdefs/optional/TraXLiaisonTest.java    | 10 ++++
+ .../junit/XMLResultAggregatorTest.java        |  7 +++
+ .../tools/ant/types/PermissionsTest.java      | 12 +++-
+ 14 files changed, 226 insertions(+), 12 deletions(-)
+ create mode 100644 apache-ant-1.10.9/src/main/org/apache/tools/ant/util/SecurityManagerUtil.java
+
+diff --git a/manual/Tasks/java.html b/manual/Tasks/java.html
+index 98c4bd3..58e5933 100644
+--- a/manual/Tasks/java.html
++++ b/manual/Tasks/java.html
+@@ -28,7 +28,9 @@
+ <h3>Description</h3>
+ <p>Executes a Java class within the running (Apache Ant) JVM or forks another JVM if specified.</p>
+ <p>If odd things go wrong when you run this task, set <var>fork</var>=<q>true</q> to use a new
+-JVM.</p>
++JVM. It is necessary to set <var>fork</var>=<q>true</q>, if the class being launched by
++  this task or any libraries being used by that class, call APIs like
++  <code>java.lang.System.exit()</code> or <code>java.lang.Runtime.exit()</code>.</p>
+ 
+ <p><em>Since Ant 1.6.3</em>, you can interact with a forked JVM, as well as sending input to it via
+ the <var>input</var> and <var>inputstring</var> attributes.</p>
+@@ -259,13 +261,17 @@ about <a href="exec.html#env">exec</a></p>
+ 
+ <p><em>Since Ant 1.6</em>.</p>
+ 
++<p><strong>Note</strong>:<br/> This element is no longer supported when running on Java 18 and
++  higher versions. See <a href="../Types/permissions.html">permissions</a> for details</p>
++
+ <p>Security permissions can be revoked and granted during the execution of the class via a
+ nested <code>permissions</code> element. For more information please
+ see <a href="../Types/permissions.html">permissions</a>.</p>
+ <p>When the permission <code>RuntimePermission exitVM</code> has not been granted (or has been
+ revoked) the <code>System.exit()</code> call will be intercepted and treated like indicated
+ in <var>failonerror</var>.</p>
+-<p><strong>Note</strong>:<br/> If you do not specify permissions, a set of default permissions will
++<p><strong>Note</strong>:<br/> When running on Java runtime versions lesser than 18,
++  if you do not specify permissions, a set of default permissions will
+ be added to your Java invocation to make sure that the Ant run will continue or terminated as
+ indicated by <var>failonerror</var>. All permissions not granted per default will be checked by
+ whatever security manager was already in place. <code>exitVM</code> will be disallowed.</p>
+diff --git a/manual/Tasks/junit.html b/manual/Tasks/junit.html
+index f0e5c95..7a34680 100644
+--- a/manual/Tasks/junit.html
++++ b/manual/Tasks/junit.html
+@@ -33,6 +33,11 @@ no <code>JUnit4TestAdapter</code>.</p>
+ <p><strong>Note</strong>: This task depends on external libraries not included
+ in the Apache Ant distribution.  See <a href="../install.html#librarydependencies">
+ Library Dependencies</a> for more information.</p>
++
++<p><strong>Note: </strong>It is necessary to set <var>fork</var>=<q>true</q>, if the test(s)
++  being launched by this task or any libraries being used by the test(s), call APIs like
++<code>java.lang.System.exit()</code> or <code>java.lang.Runtime.exit()</code>.</p>
++
+ <p><strong>Note</strong>: You must have <samp>junit.jar</samp> available.  You can do one of:</p>
+ <ol>
+   <li>Put both <samp>junit.jar</samp> and <samp>ant-junit.jar</samp>
+@@ -294,6 +299,9 @@ is <q>false</q> or the target JVM doesn't support it (i.e. Java 1.1).</p>
+ 
+ <p><em>Since Ant 1.6</em>.</p>
+ 
++<p><strong>Note</strong>:<br/> This element is no longer supported when running on Java 18 and
++  higher versions. See <a href="../Types/permissions.html">permissions</a> for details</p>
++
+ <p>Security permissions can be revoked and granted during the execution of the class via a
+ nested <code>permissions</code> element. For more information please
+ see <a href="../Types/permissions.html">permissions</a></p>
+diff --git a/manual/Types/permissions.html b/manual/Types/permissions.html
+index 6118ab5..b0c7e89 100644
+--- a/manual/Types/permissions.html
++++ b/manual/Types/permissions.html
+@@ -25,6 +25,18 @@
+ <body>
+ 
+ <h2 id="permissions">Permissions</h2>
++<p><b>Note:</b> <code>Permissions</code> requires the use of Java SecurityManager.
++  Java version 17 deprecated SecurityManager for removal and Java 18 and higher versions, by
++  default, disallow setting SecurityManager at runtime. <code>Permissions</code> is thus no longer
++  supported when used in Java 18 or higher versions. Using it in those Java runtime versions
++  will throw a <code>org.apache.tools.ant.BuildException</code>. Throwing of
++  <code>BuildException</code> can be relaxed by setting the
++  <code>ant.securitymanager.usage.warn</code> system or Ant property to <code>true</code>,
++  which will then cause a warning to be logged instead of the exception being thrown. Even when
++  <code>ant.securitymanager.usage.warn</code> is set to <code>true</code>,
++  SecurityManager usage will still be disabled and no security checks will be performed.
++  It is recommended to no longer use <code>&lt;permissions&gt;</code></p>
++
+ <p>Permissions represents a set of security permissions granted or revoked to a specific part
+ code executed in the JVM where Apache Ant is running in.  The actual Permissions are specified
+ via a set of nested permission items either <code>&lt;grant&gt;</code>ed
+diff --git a/src/main/org/apache/tools/ant/MagicNames.java b/src/main/org/apache/tools/ant/MagicNames.java
+index 12fbcf7..4e3b873 100644
+--- a/src/main/org/apache/tools/ant/MagicNames.java
++++ b/src/main/org/apache/tools/ant/MagicNames.java
+@@ -359,5 +359,16 @@ public final class MagicNames {
+      */
+     public static final String DISABLE_NASHORN_COMPAT = "ant.disable.graal.nashorn.compat";
+ 
++    /**
++     * When running on Java 18 or higher runtime, Ant will throw a {@link BuildException}
++     * if the {@linkplain  org.apache.tools.ant.types.Permissions <permissions>} type is used.
++     * Set this property to {@code true} to disable throwing an exception and instead just log a
++     * warning message.
++     *
++     * Value: {@value}
++     * @since Ant 1.10.14
++     */
++    public static final String WARN_SECURITY_MANAGER_USAGE = "ant.securitymanager.usage.warn";
++
+ }
+ 
+diff --git a/src/main/org/apache/tools/ant/taskdefs/ExecuteJava.java b/src/main/org/apache/tools/ant/taskdefs/ExecuteJava.java
+index 0964c91..cb0d125 100644
+--- a/src/main/org/apache/tools/ant/taskdefs/ExecuteJava.java
++++ b/src/main/org/apache/tools/ant/taskdefs/ExecuteJava.java
+@@ -211,9 +211,11 @@ public class ExecuteJava implements Runnable, TimeoutObserver {
+     @Override
+     public void run() {
+         final Object[] argument = {javaCommand.getArguments()};
++        boolean restoreSecMgr = false;
+         try {
+             if (perm != null) {
+                 perm.setSecurityManager();
++                restoreSecMgr = true;
+             }
+             main.invoke(null, argument);
+         } catch (InvocationTargetException e) {
+@@ -224,7 +226,7 @@ public class ExecuteJava implements Runnable, TimeoutObserver {
+         } catch (Throwable t) {
+             caught = t;
+         } finally {
+-            if (perm != null) {
++            if (perm != null && restoreSecMgr) {
+                 perm.restoreSecurityManager();
+             }
+             synchronized (this) {
+diff --git a/src/main/org/apache/tools/ant/taskdefs/Java.java b/src/main/org/apache/tools/ant/taskdefs/Java.java
+index 7acdad4..d92fbf6 100644
+--- a/src/main/org/apache/tools/ant/taskdefs/Java.java
++++ b/src/main/org/apache/tools/ant/taskdefs/Java.java
+@@ -38,6 +38,7 @@ import org.apache.tools.ant.types.PropertySet;
+ import org.apache.tools.ant.types.RedirectorElement;
+ import org.apache.tools.ant.types.Reference;
+ import org.apache.tools.ant.util.KeepAliveInputStream;
++import org.apache.tools.ant.util.SecurityManagerUtil;
+ import org.apache.tools.ant.util.StringUtils;
+ 
+ /**
+@@ -202,7 +203,7 @@ public class Java extends Task {
+                 log("bootclasspath ignored when same JVM is used.",
+                     Project.MSG_WARN);
+             }
+-            if (perm == null) {
++            if (perm == null && SecurityManagerUtil.isSetSecurityManagerAllowed()) {
+                 perm = new Permissions(true);
+                 log("running " + this.getCommandLine().getClassname()
+                     + " with default permissions (exit forbidden)", Project.MSG_VERBOSE);
+diff --git a/src/main/org/apache/tools/ant/taskdefs/condition/JavaVersion.java b/src/main/org/apache/tools/ant/taskdefs/condition/JavaVersion.java
+index e121c30..831d53b 100644
+--- a/src/main/org/apache/tools/ant/taskdefs/condition/JavaVersion.java
++++ b/src/main/org/apache/tools/ant/taskdefs/condition/JavaVersion.java
+@@ -27,6 +27,7 @@ import org.apache.tools.ant.util.JavaEnvUtils;
+  */
+ public class JavaVersion implements Condition {
+ 
++    private String atMost = null;
+     private String atLeast = null;
+     private String exactly = null;
+ 
+@@ -44,16 +45,19 @@ public class JavaVersion implements Condition {
+         if (null != exactly) {
+             return actual.isEqual(new DeweyDecimal(exactly));
+         }
++        if (atMost != null) {
++            return actual.isLessThanOrEqual(new DeweyDecimal(atMost));
++        }
+         //default
+         return false;
+     }
+ 
+     private void validate() throws BuildException {
+-        if (atLeast != null && exactly != null) {
+-            throw new BuildException("Only one of atleast or exactly may be set.");
++        if (atLeast != null && exactly != null && atMost != null) {
++            throw new BuildException("Only one of atleast or atmost or exactly may be set.");
+         }
+-        if (null == atLeast && null == exactly) {
+-            throw new BuildException("One of atleast or exactly must be set.");
++        if (null == atLeast && null == exactly && atMost == null) {
++            throw new BuildException("One of atleast or atmost or exactly must be set.");
+         }
+         if (atLeast != null) {
+             try {
+@@ -64,6 +68,14 @@ public class JavaVersion implements Condition {
+                     "The 'atleast' attribute is not a Dewey Decimal eg 1.1.0 : "
+                     + atLeast);
+             }
++        } else if (atMost != null) {
++            try {
++                new DeweyDecimal(atMost); //NOSONAR
++            } catch (NumberFormatException e) {
++                throw new BuildException(
++                        "The 'atmost' attribute is not a Dewey Decimal eg 1.1.0 : "
++                                + atMost);
++            }
+         } else {
+             try {
+                 // only created for side effect
+@@ -94,6 +106,26 @@ public class JavaVersion implements Condition {
+         this.atLeast = atLeast;
+     }
+ 
++    /**
++     * Get the atmost attribute.
++     * @return the atmost attribute.
++     * @since Ant 1.10.10
++     */
++    public String getAtMost() {
++        return atMost;
++    }
++
++    /**
++     * Set the atmost attribute.
++     * This is of the form major.minor.point.
++     * For example 11.0.2
++     * @param atMost the version to set
++     * @since Ant 1.10.10
++     */
++    public void setAtMost(String atMost) {
++        this.atMost = atMost;
++    }
++
+     /**
+      * Get the exactly attribute.
+      * @return the exactly attribute.
+diff --git a/src/main/org/apache/tools/ant/types/Permissions.java b/src/main/org/apache/tools/ant/types/Permissions.java
+index 1d94388..eabd490 100644
+--- a/src/main/org/apache/tools/ant/types/Permissions.java
++++ b/src/main/org/apache/tools/ant/types/Permissions.java
+@@ -30,11 +30,15 @@ import java.util.StringTokenizer;
+ 
+ import org.apache.tools.ant.BuildException;
+ import org.apache.tools.ant.ExitException;
++import org.apache.tools.ant.Project;
++import org.apache.tools.ant.ProjectComponent;
++import org.apache.tools.ant.util.SecurityManagerUtil;
+ 
+ /**
+  * This class implements a security manager meant for usage by tasks that run inside the
+  * Ant VM. An examples are the Java Task and JUnitTask.
+  *
++ * <p>
+  * The basic functionality is that nothing (except for a base set of permissions) is allowed, unless
+  * the permission is granted either explicitly or implicitly.
+  * If a permission is granted this can be overruled by explicitly revoking the permission.
+@@ -42,9 +46,13 @@ import org.apache.tools.ant.ExitException;
+  * It is not permissible to add permissions (either granted or revoked) while the Security Manager
+  * is active (after calling setSecurityManager() but before calling restoreSecurityManager()).
+  *
++ * <p>
++ * Note: This class isn't supported in Java 18 and higher where {@link SecurityManager} has been
++ * deprecated for removal.
++ *
+  * @since Ant 1.6
+  */
+-public class Permissions {
++public class Permissions extends ProjectComponent {
+ 
+     private final List<Permission> grantedPermissions = new LinkedList<>();
+     private final List<Permission> revokedPermissions = new LinkedList<>();
+@@ -95,9 +103,25 @@ public class Permissions {
+      * subject to these Permissions. Note that setting the SecurityManager too early may
+      * prevent your part from starting, as for instance changing classloaders may be prohibited.
+      * The classloader for the new situation is supposed to be present.
++     * <p>
++     * This method is no longer supported in Java 18 and higher versions and throws a
++     * {@link BuildException}. {@link org.apache.tools.ant.MagicNames#WARN_SECURITY_MANAGER_USAGE}
++     * property can be set to {@code true} to log a warning message instead of throwing the exception.
++     *
+      * @throws BuildException on error
+      */
+     public synchronized void setSecurityManager() throws BuildException {
++        if (!SecurityManagerUtil.isSetSecurityManagerAllowed()) {
++            final String msg = "Use of <permissions> or " + Permissions.class.getName()
++                    + " is disallowed in current Java runtime version";
++            if (SecurityManagerUtil.warnOnSecurityManagerUsage(getProject())) {
++                // just log a warning
++                log("Security checks are disabled - " + msg, Project.MSG_WARN);
++                return;
++            } else {
++                throw new BuildException(msg);
++            }
++        }
+         origSm = System.getSecurityManager();
+         init();
+         System.setSecurityManager(new MySM());
+@@ -167,8 +191,23 @@ public class Permissions {
+ 
+     /**
+      * To be used by tasks that just finished executing the parts subject to these permissions.
++     * <p>
++     * This method is no longer supported in Java 18 and higher versions and throws a
++     * {@link BuildException}. {@link org.apache.tools.ant.MagicNames#WARN_SECURITY_MANAGER_USAGE}
++     * property can be set to {@code true} to log a warning message instead of throwing the exception.
+      */
+-    public synchronized void restoreSecurityManager() {
++    public synchronized void restoreSecurityManager() throws BuildException {
++        if (!SecurityManagerUtil.isSetSecurityManagerAllowed()) {
++            final String msg = "Use of <permissions> or " + Permissions.class.getName()
++                    + " is disallowed in current Java runtime version";
++            if (SecurityManagerUtil.warnOnSecurityManagerUsage(getProject())) {
++                // just log a warning
++                log("Security checks are disabled - " + msg, Project.MSG_WARN);
++                return;
++            } else {
++                throw new BuildException(msg);
++            }
++        }
+         active = false;
+         System.setSecurityManager(origSm);
+     }
+diff --git a/src/main/org/apache/tools/ant/util/SecurityManagerUtil.java b/src/main/org/apache/tools/ant/util/SecurityManagerUtil.java
+new file mode 100644
+index 0000000..836a7b8
+--- /dev/null
++++ b/src/main/org/apache/tools/ant/util/SecurityManagerUtil.java
+@@ -0,0 +1,57 @@
++/*
++ *  Licensed to the Apache Software Foundation (ASF) under one or more
++ *  contributor license agreements.  See the NOTICE file distributed with
++ *  this work for additional information regarding copyright ownership.
++ *  The ASF licenses this file to You under the Apache License, Version 2.0
++ *  (the "License"); you may not use this file except in compliance with
++ *  the License.  You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ *  Unless required by applicable law or agreed to in writing, software
++ *  distributed under the License is distributed on an "AS IS" BASIS,
++ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *  See the License for the specific language governing permissions and
++ *  limitations under the License.
++ *
++ */
++package org.apache.tools.ant.util;
++
++import org.apache.tools.ant.MagicNames;
++import org.apache.tools.ant.Project;
++
++/**
++ * @since Ant 1.10.14
++ */
++public final class SecurityManagerUtil {
++
++    private static final boolean isJava18OrHigher = JavaEnvUtils.isAtLeastJavaVersion("18");
++    private static final boolean sysPropWarnOnSecMgrUsage =
++            Boolean.getBoolean(MagicNames.WARN_SECURITY_MANAGER_USAGE);
++
++    /**
++     * {@return true if {@code SecurityManager} usage is allowed in current Java runtime. false
++     * otherwise}
++     */
++    public static boolean isSetSecurityManagerAllowed() {
++        if (isJava18OrHigher) {
++            return false;
++        }
++        return true;
++    }
++
++    /**
++     * {@return true if {@code SecurityManager} usage should only be logged as a warning. false
++     * otherwise}
++     */
++    public static boolean warnOnSecurityManagerUsage(final Project project) {
++        if (project == null) {
++            return sysPropWarnOnSecMgrUsage;
++        }
++        final String val = project.getProperty(MagicNames.WARN_SECURITY_MANAGER_USAGE);
++        if (val == null) {
++            return sysPropWarnOnSecMgrUsage;
++        }
++        return Boolean.parseBoolean(val);
++    }
++}
+diff --git a/src/main/org/apache/tools/ant/util/optional/NoExitSecurityManager.java b/src/main/org/apache/tools/ant/util/optional/NoExitSecurityManager.java
+index 4df8ef0..f1559e9 100644
+--- a/src/main/org/apache/tools/ant/util/optional/NoExitSecurityManager.java
++++ b/src/main/org/apache/tools/ant/util/optional/NoExitSecurityManager.java
+@@ -26,6 +26,8 @@ import org.apache.tools.ant.ExitException;
+  * The goal is to intercept System.exit calls and make it throw an
+  * exception instead so that a System.exit in a task does not
+  * fully terminate Ant.
++ * <p>
++ * This class is no longer supported in Java runtime versions 18 and higher.
+  *
+  * @see ExitException
+  */
+diff --git a/src/tests/junit/org/apache/tools/ant/taskdefs/JavaTest.java b/src/tests/junit/org/apache/tools/ant/taskdefs/JavaTest.java
+index 1265461..3faf3a6 100644
+--- a/src/tests/junit/org/apache/tools/ant/taskdefs/JavaTest.java
++++ b/src/tests/junit/org/apache/tools/ant/taskdefs/JavaTest.java
+@@ -35,6 +35,7 @@ import org.apache.tools.ant.MagicNames;
+ import org.apache.tools.ant.input.DefaultInputHandler;
+ import org.apache.tools.ant.taskdefs.condition.JavaVersion;
+ import org.apache.tools.ant.util.FileUtils;
++import org.apache.tools.ant.util.JavaEnvUtils;
+ import org.apache.tools.ant.util.TeeOutputStream;
+ import org.junit.Assume;
+ import org.junit.AssumptionViolatedException;
+@@ -72,6 +73,18 @@ public class JavaTest {
+ 
+     private boolean runFatalTests = false;
+ 
++    private static final boolean allowedToIssueSystemExit;
++    private static final String SKIP_MSG_CAUSE_SYSTEM_EXIT_USE =
++            "Skipping test on current Java version " + JavaEnvUtils.getJavaVersion()
++                    + " because test calls System.exit() in non-forked VM";
++    static {
++        final JavaVersion javaVersion = new JavaVersion();
++        javaVersion.setAtMost("17");
++        // don't run tests which call System.exit() on a non-forked VM because
++        // Ant no longer sets a custom SecurityManager to prevent the VM exit
++        // for Java versions >= 18
++        allowedToIssueSystemExit = javaVersion.eval();
++    }
+ 
+     /**
+      * configure the project.
+@@ -209,12 +222,14 @@ public class JavaTest {
+     @Test
+     public void testRunFail() {
+         assumeTrue("Fatal tests have not been set to run", runFatalTests);
++        assumeTrue(SKIP_MSG_CAUSE_SYSTEM_EXIT_USE, allowedToIssueSystemExit);
+         buildRule.executeTarget("testRunFail");
+     }
+ 
+     @Test
+     public void testRunFailFoe() {
+         assumeTrue("Fatal tests have not been set to run", runFatalTests);
++        assumeTrue(SKIP_MSG_CAUSE_SYSTEM_EXIT_USE, allowedToIssueSystemExit);
+         thrown.expect(BuildException.class);
+         thrown.expectMessage("Java returned:");
+         buildRule.executeTarget("testRunFailFoe");
+@@ -273,12 +288,14 @@ public class JavaTest {
+ 
+     @Test
+     public void testResultPropertyNonZeroNoFork() {
++        assumeTrue(SKIP_MSG_CAUSE_SYSTEM_EXIT_USE, allowedToIssueSystemExit);
+         buildRule.executeTarget("testResultPropertyNonZeroNoFork");
+-         assertEquals("-1", buildRule.getProject().getProperty("exitcode"));
++        assertEquals("-1", buildRule.getProject().getProperty("exitcode"));
+      }
+ 
+     @Test
+     public void testRunFailWithFailOnError() {
++        assumeTrue(SKIP_MSG_CAUSE_SYSTEM_EXIT_USE, allowedToIssueSystemExit);
+         thrown.expect(BuildException.class);
+         thrown.expectMessage("Java returned:");
+         buildRule.executeTarget("testRunFailWithFailOnError");
+diff --git a/src/tests/junit/org/apache/tools/ant/taskdefs/optional/TraXLiaisonTest.java b/src/tests/junit/org/apache/tools/ant/taskdefs/optional/TraXLiaisonTest.java
+index 9ea6089..4d69126 100644
+--- a/src/tests/junit/org/apache/tools/ant/taskdefs/optional/TraXLiaisonTest.java
++++ b/src/tests/junit/org/apache/tools/ant/taskdefs/optional/TraXLiaisonTest.java
+@@ -35,7 +35,9 @@ import javax.xml.transform.TransformerFactoryConfigurationError;
+ import org.apache.tools.ant.BuildException;
+ import org.apache.tools.ant.taskdefs.XSLTLiaison;
+ import org.apache.tools.ant.taskdefs.XSLTLogger;
++import org.apache.tools.ant.taskdefs.condition.JavaVersion;
+ import org.apache.tools.ant.util.JAXPUtils;
++import org.apache.tools.ant.util.JavaEnvUtils;
+ import org.junit.After;
+ import org.junit.Test;
+ 
+@@ -60,6 +62,10 @@ public class TraXLiaisonTest extends AbstractXSLTLiaisonTest implements XSLTLogg
+ 
+     @Test
+     public void testXalan2RedirectViaJDKFactory() throws Exception {
++        final JavaVersion javaVersion = new JavaVersion();
++        javaVersion.setAtMost("17");
++        assumeTrue("Test sets SecurityManager at runtime which is no longer supported" +
++                " on Java version: " + JavaEnvUtils.getJavaVersion(), javaVersion.eval());
+         try {
+             getClass().getClassLoader().loadClass("org.apache.xalan.lib.Redirect");
+         } catch (Exception exc) {
+@@ -106,6 +112,10 @@ public class TraXLiaisonTest extends AbstractXSLTLiaisonTest implements XSLTLogg
+ 
+     @Test
+     public void testXalan2RedirectViaXalan() throws Exception {
++        final JavaVersion javaVersion = new JavaVersion();
++        javaVersion.setAtMost("17");
++        assumeTrue("Test sets SecurityManager at runtime which is no longer supported" +
++                " on Java version: " + JavaEnvUtils.getJavaVersion(), javaVersion.eval());
+         try {
+             getClass().getClassLoader().loadClass("org.apache.xalan.lib.Redirect");
+         } catch (Exception exc) {
+diff --git a/src/tests/junit/org/apache/tools/ant/taskdefs/optional/junit/XMLResultAggregatorTest.java b/src/tests/junit/org/apache/tools/ant/taskdefs/optional/junit/XMLResultAggregatorTest.java
+index 802f572..301c339 100644
+--- a/src/tests/junit/org/apache/tools/ant/taskdefs/optional/junit/XMLResultAggregatorTest.java
++++ b/src/tests/junit/org/apache/tools/ant/taskdefs/optional/junit/XMLResultAggregatorTest.java
+@@ -20,6 +20,7 @@ package org.apache.tools.ant.taskdefs.optional.junit;
+ 
+ import static org.junit.Assert.assertTrue;
+ import static org.junit.Assume.assumeNoException;
++import static org.junit.Assume.assumeTrue;
+ 
+ import java.io.File;
+ import java.io.FileOutputStream;
+@@ -29,13 +30,19 @@ import java.security.Permission;
+ import org.apache.tools.ant.DefaultLogger;
+ import org.apache.tools.ant.Project;
+ import org.apache.tools.ant.taskdefs.Delete;
++import org.apache.tools.ant.taskdefs.condition.JavaVersion;
+ import org.apache.tools.ant.types.FileSet;
++import org.apache.tools.ant.util.JavaEnvUtils;
+ import org.junit.Test;
+ 
+ public class XMLResultAggregatorTest {
+ 
+     @Test
+     public void testFrames() throws Exception {
++        final JavaVersion javaVersion = new JavaVersion();
++        javaVersion.setAtMost("17");
++        assumeTrue("Test sets SecurityManager at runtime which is no longer supported" +
++                " on Java version: " + JavaEnvUtils.getJavaVersion(), javaVersion.eval());
+         // For now, skip this test on JDK 6 (and below); see below for why:
+         try {
+             Class.forName("java.nio.file.Files");
+diff --git a/src/tests/junit/org/apache/tools/ant/types/PermissionsTest.java b/src/tests/junit/org/apache/tools/ant/types/PermissionsTest.java
+index bbc7f1f..7578a25 100644
+--- a/src/tests/junit/org/apache/tools/ant/types/PermissionsTest.java
++++ b/src/tests/junit/org/apache/tools/ant/types/PermissionsTest.java
+@@ -19,6 +19,8 @@
+ package org.apache.tools.ant.types;
+ 
+ import org.apache.tools.ant.ExitException;
++import org.apache.tools.ant.taskdefs.condition.JavaVersion;
++import org.apache.tools.ant.util.JavaEnvUtils;
+ import org.junit.After;
+ import org.junit.Before;
+ import org.junit.Rule;
+@@ -27,6 +29,7 @@ import org.junit.rules.ExpectedException;
+ 
+ import static org.hamcrest.Matchers.equalTo;
+ import static org.hamcrest.Matchers.hasProperty;
++import static org.junit.Assume.assumeTrue;
+ 
+ /**
+  * JUnit 4 testcases for org.apache.tools.ant.types.Permissions.
+@@ -40,6 +43,11 @@ public class PermissionsTest {
+ 
+     @Before
+     public void setUp() {
++        final JavaVersion javaVersion = new JavaVersion();
++        javaVersion.setAtMost("17");
++        assumeTrue("org.apache.tools.ant.types.Permissions no longer supported on Java version: "
++                + JavaEnvUtils.getJavaVersion(), javaVersion.eval());
++
+         perms = new Permissions();
+         Permissions.Permission perm = new Permissions.Permission();
+         // Grant extra permissions to read and write the user.* properties and read to the
+@@ -87,7 +95,9 @@ public class PermissionsTest {
+ 
+     @After
+     public void tearDown() {
+-        perms.restoreSecurityManager();
++        if (perms != null) {
++            perms.restoreSecurityManager();
++        }
+     }
+ 
+     /** Tests a permission that is granted per default. */
+-- 
+2.47.0
+

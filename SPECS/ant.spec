@@ -34,7 +34,7 @@
 
 Name:           ant
 Version:        1.10.9
-Release:        8%{?dist}
+Release:        11%{?dist}
 Summary:        Java build tool
 Summary(it):    Tool per la compilazione di programmi java
 Summary(fr):    Outil de compilation pour java
@@ -47,6 +47,7 @@ Source3:        ant.asciidoc
 
 Patch0:         %{name}-build.xml.patch
 Patch1:         %{name}-openjdk-jpeg-cmyk.patch
+Patch2:         0001-Disable-SecurityManager-for-Java-18.patch
 
 BuildRequires:  asciidoc
 BuildRequires:  xmlto
@@ -79,11 +80,10 @@ BuildRequires:  mvn(org.hamcrest:hamcrest-library)
 BuildRequires:  junit5
 %endif
 
-# Theoretically Ant might be usable with just JRE, but typical Ant
-# workflow requires full JDK, so we recommend it here.
-Recommends: java-devel >= 1:1.8.0
-
 Requires:       %{name}-lib = %{version}-%{release}
+Requires:       %{name}-jdk-binding = %{version}-%{release}
+Suggests:       %{name}-openjdk17 = %{version}-%{release}
+
 # Require full javapackages-tools since the ant script uses
 # /usr/share/java-utils/java-functions
 Requires:       javapackages-tools
@@ -323,12 +323,61 @@ Javadoc pour %{name}.
 
 %endif
 
+%package openjdk8
+Summary:        OpenJDK 8 binding for Ant
+RemovePathPostfixes: -openjdk8
+Provides: ant-jdk-binding = %{version}-%{release}
+Requires: ant = %{version}-%{release}
+Requires: java-1.8.0-openjdk-headless
+Recommends: java-1.8.0-openjdk-devel
+Conflicts: ant-jdk-binding
+
+%description openjdk8
+Configures Ant to run with OpenJDK 8.
+
+%package openjdk11
+Summary:        OpenJDK 11 binding for Ant
+RemovePathPostfixes: -openjdk11
+Provides: ant-jdk-binding = %{version}-%{release}
+Requires: ant = %{version}-%{release}
+Requires: java-11-openjdk-headless
+Recommends: java-11-openjdk-devel
+Conflicts: ant-jdk-binding
+
+%description openjdk11
+Configures Ant to run with OpenJDK 11.
+
+%package openjdk17
+Summary:        OpenJDK 17 binding for Ant
+RemovePathPostfixes: -openjdk17
+Provides: ant-jdk-binding = %{version}-%{release}
+Requires: ant = %{version}-%{release}
+Requires: java-17-openjdk-headless
+Recommends: java-17-openjdk-devel
+Conflicts: ant-jdk-binding
+
+%description openjdk17
+Configures Ant to run with OpenJDK 17.
+
+%package openjdk21
+Summary:        OpenJDK 21 binding for Ant
+RemovePathPostfixes: -openjdk21
+Provides: ant-jdk-binding = %{version}-%{release}
+Requires: ant = %{version}-%{release}
+Requires: java-21-openjdk-headless
+Recommends: java-21-openjdk-devel
+Conflicts: ant-jdk-binding
+
+%description openjdk21
+Configures Ant to run with OpenJDK 21.
+
 # -----------------------------------------------------------------------------
 
 %prep
 %setup -q -n apache-ant-%{version}
-%patch0 -p0
-%patch1 -p1
+%patch -P 0 -p0
+%patch -P 1 -p1
+%patch -P 2 -p1
 
 # clean jar files
 find . -name "*.jar" | xargs -t rm
@@ -365,9 +414,9 @@ sed -e 's:/etc/ant.conf:%{_sysconfdir}/ant.conf:g' \
 sed -i 's/jaxp_parser_impl//;s/xml-commons-apis//' src/script/ant
 
 # Fix file-not-utf8 rpmlint warning
-iconv KEYS -f iso-8859-1 -t utf-8 -o KEYS.utf8
+iconv KEYS -f iso-8859-1 -t utf-8 >KEYS.utf8
 mv KEYS.utf8 KEYS
-iconv LICENSE -f iso-8859-1 -t utf-8 -o LICENSE.utf8
+iconv LICENSE -f iso-8859-1 -t utf-8 >LICENSE.utf8
 mv LICENSE.utf8 LICENSE
 
 # We want a hard dep on antlr
@@ -465,6 +514,20 @@ cp -p src/script/antRun $RPM_BUILD_ROOT%{ant_home}/bin/
 # default ant.conf
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}
 cp -p %{name}.conf $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.conf
+
+# JDK bindings for ant.conf
+install -d -m 755 $RPM_BUILD_ROOT%{_javaconfdir}/
+## For Java 1.8 prefer jvm
+echo '
+if [ -d %{_jvmlibdir}/java-1.8.0-openjdk ]; then
+  JAVA_HOME=%{_jvmlibdir}/java-1.8.0-openjdk
+else
+  JAVA_HOME=%{_jvmlibdir}/jre-1.8.0-openjdk
+fi
+' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk8
+echo 'JAVA_HOME=%{_jvmlibdir}/jre-11-openjdk' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk11
+echo 'JAVA_HOME=%{_jvmlibdir}/jre-17-openjdk' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk17
+echo 'JAVA_HOME=%{_jvmlibdir}/jre-21-openjdk' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk21
 
 # OPT_JAR_LIST fragments
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d
@@ -635,9 +698,32 @@ LC_ALL=C.UTF-8 %{ant} -Doffline=true test
 
 %endif
 
+%files openjdk8
+%config %{_javaconfdir}/%{name}.conf-openjdk8
+
+%files openjdk11
+%config %{_javaconfdir}/%{name}.conf-openjdk11
+
+%files openjdk17
+%config %{_javaconfdir}/%{name}.conf-openjdk17
+
+%files openjdk21
+%config %{_javaconfdir}/%{name}.conf-openjdk21
+
 # -----------------------------------------------------------------------------
 
 %changelog
+* Thu Nov 21 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-11
+- Fix the usage ot patch macro
+
+* Fri Nov 08 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-10
+- Add OpenJDK bindings in a separate configuration file
+- Resolves: RHEL-62405
+
+* Wed Oct 16 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-9
+- Add OpenJDK bindings
+- Resolves: RHEL-62405
+
 * Thu Jun 13 2024 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.10.9-8
 - Fix test failures due to JPEG CMYK support in OpenJDK
 - Resolves: RHEL-5354
