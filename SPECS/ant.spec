@@ -30,16 +30,20 @@
 
 %bcond_with bootstrap
 
+%global java_arches aarch64 ppc64le s390x x86_64
 %global ant_home %{_datadir}/ant
 
 Name:           ant
 Version:        1.10.9
-Release:        11%{?dist}
+Release:        15%{?dist}
 Summary:        Java build tool
 Summary(it):    Tool per la compilazione di programmi java
 Summary(fr):    Outil de compilation pour java
 License:        ASL 2.0
 URL:            https://ant.apache.org/
+BuildArch:      noarch
+ExclusiveArch:  %{java_arches} noarch
+
 Source0:        https://www.apache.org/dist/ant/source/apache-ant-%{version}-src.tar.bz2
 Source2:        apache-ant-1.8.ant.conf
 # manpage
@@ -56,7 +60,6 @@ BuildRequires:  javapackages-local
 %if %{with bootstrap}
 BuildRequires:  javapackages-bootstrap
 %else
-BuildRequires:  java-devel >= 1:1.8.0
 BuildRequires:  ant >= 1.10.2
 BuildRequires:  ant-junit
 
@@ -81,14 +84,12 @@ BuildRequires:  junit5
 %endif
 
 Requires:       %{name}-lib = %{version}-%{release}
-Requires:       %{name}-jdk-binding = %{version}-%{release}
+Requires:       %{name}-jdk-binding
 Suggests:       %{name}-openjdk17 = %{version}-%{release}
 
 # Require full javapackages-tools since the ant script uses
 # /usr/share/java-utils/java-functions
 Requires:       javapackages-tools
-
-BuildArch:      noarch
 
 %description
 Apache Ant is a Java library and command-line tool whose mission is to
@@ -302,6 +303,8 @@ Optional xz tasks for %{name}.
 
 %package manual
 Summary:        Manual for %{name}
+# tutorial-tasks-filesets-properties.zip contains ASL 1.1 files
+License:        ASL 2.0 and ASL 1.1
 
 %description manual
 Documentation for %{name}.
@@ -323,61 +326,93 @@ Javadoc pour %{name}.
 
 %endif
 
+%if !0%{?specpartsdir:1}
+
 %package openjdk8
 Summary:        OpenJDK 8 binding for Ant
-RemovePathPostfixes: -openjdk8
-Provides: ant-jdk-binding = %{version}-%{release}
-Requires: ant = %{version}-%{release}
-Requires: java-1.8.0-openjdk-headless
-Recommends: java-1.8.0-openjdk-devel
-Conflicts: ant-jdk-binding
+Provides:       ant-jdk-binding = %{version}-%{release}
+Requires:       java-1.8.0-openjdk-headless
+Recommends:     java-1.8.0-openjdk-devel
+Requires:       javapackages-tools >= 6.4.0
+Requires(meta): ant = %{version}-%{release}
 
 %description openjdk8
 Configures Ant to run with OpenJDK 8.
 
+%files openjdk8
+%ghost %{_jpbindingdir}/ant.conf
+%dir %{_jpbindingdir}/ant.conf.d
+%{_jpbindingdir}/ant.conf.d/openjdk8
+
 %package openjdk11
 Summary:        OpenJDK 11 binding for Ant
-RemovePathPostfixes: -openjdk11
-Provides: ant-jdk-binding = %{version}-%{release}
-Requires: ant = %{version}-%{release}
-Requires: java-11-openjdk-headless
-Recommends: java-11-openjdk-devel
-Conflicts: ant-jdk-binding
+Provides:       ant-jdk-binding = %{version}-%{release}
+Requires:       java-11-openjdk-headless
+Recommends:     java-11-openjdk-devel
+Requires:       javapackages-tools >= 6.4.0
+Requires(meta): ant = %{version}-%{release}
 
 %description openjdk11
 Configures Ant to run with OpenJDK 11.
 
+%files openjdk11
+%ghost %{_jpbindingdir}/ant.conf
+%dir %{_jpbindingdir}/ant.conf.d
+%{_jpbindingdir}/ant.conf.d/openjdk11
+
 %package openjdk17
-Summary:        OpenJDK 17 binding for Ant
-RemovePathPostfixes: -openjdk17
-Provides: ant-jdk-binding = %{version}-%{release}
-Requires: ant = %{version}-%{release}
-Requires: java-17-openjdk-headless
-Recommends: java-17-openjdk-devel
-Conflicts: ant-jdk-binding
+Summary: OpenJDK 17 binding for Ant
+Provides:       ant-jdk-binding = %{version}-%{release}
+Requires:       java-17-openjdk-headless
+Recommends:     java-17-openjdk-devel
+Requires:       javapackages-tools >= 6.4.0
+Requires(meta): ant = %{version}-%{release}
 
 %description openjdk17
 Configures Ant to run with OpenJDK 17.
 
+%files openjdk17
+%ghost %{_jpbindingdir}/ant.conf
+%dir %{_jpbindingdir}/ant.conf.d
+%{_jpbindingdir}/ant.conf.d/openjdk17
+
 %package openjdk21
 Summary:        OpenJDK 21 binding for Ant
-RemovePathPostfixes: -openjdk21
-Provides: ant-jdk-binding = %{version}-%{release}
-Requires: ant = %{version}-%{release}
-Requires: java-21-openjdk-headless
-Recommends: java-21-openjdk-devel
-Conflicts: ant-jdk-binding
+Provides:       ant-jdk-binding = %{version}-%{release}
+Requires:       java-21-openjdk-headless
+Recommends:     java-21-openjdk-devel
+Requires:       javapackages-tools >= 6.4.0
+Requires(meta): ant = %{version}-%{release}
 
 %description openjdk21
 Configures Ant to run with OpenJDK 21.
 
+%files openjdk21
+%ghost %{_jpbindingdir}/ant.conf
+%dir %{_jpbindingdir}/ant.conf.d
+%{_jpbindingdir}/ant.conf.d/openjdk21
+
+%package unbound
+Summary:        Unbound binding for Ant
+Provides:       ant-jdk-binding = %{version}-%{release}
+Requires:       javapackages-tools >= 6.4.0
+Requires(meta): ant = %{version}-%{release}
+
+%description unbound
+Configures Ant to run with Java discovered using JAVA_HOME and PATH
+environment variables.
+
+%files unbound
+%ghost %{_jpbindingdir}/ant.conf
+%dir %{_jpbindingdir}/ant.conf.d
+%{_jpbindingdir}/ant.conf.d/unbound
+
+%endif
+
 # -----------------------------------------------------------------------------
 
 %prep
-%setup -q -n apache-ant-%{version}
-%patch -P 0 -p0
-%patch -P 1 -p1
-%patch -P 2 -p1
+%autosetup -p1 -n apache-ant-%{version}
 
 # clean jar files
 find . -name "*.jar" | xargs -t rm
@@ -515,8 +550,17 @@ cp -p src/script/antRun $RPM_BUILD_ROOT%{ant_home}/bin/
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}
 cp -p %{name}.conf $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.conf
 
-# JDK bindings for ant.conf
-install -d -m 755 $RPM_BUILD_ROOT%{_javaconfdir}/
+# OPT_JAR_LIST fragments
+mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d
+echo "junit hamcrest/core ant/ant-junit" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/junit
+echo "junit hamcrest/core ant/ant-junit4" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/junit4
+
+# JDK bindings
+%if !0%{?specpartsdir:1}
+export RPM_SPECPARTS_DIR=/tmp
+%endif
+install -d -m 755 %{buildroot}%{_javaconfdir}/
+ln -sf %{_jpbindingdir}/ant.conf %{buildroot}%{_javaconfdir}/ant.conf
 ## For Java 1.8 prefer jvm
 echo '
 if [ -d %{_jvmlibdir}/java-1.8.0-openjdk ]; then
@@ -524,15 +568,16 @@ if [ -d %{_jvmlibdir}/java-1.8.0-openjdk ]; then
 else
   JAVA_HOME=%{_jvmlibdir}/jre-1.8.0-openjdk
 fi
-' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk8
-echo 'JAVA_HOME=%{_jvmlibdir}/jre-11-openjdk' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk11
-echo 'JAVA_HOME=%{_jvmlibdir}/jre-17-openjdk' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk17
-echo 'JAVA_HOME=%{_jvmlibdir}/jre-21-openjdk' >$RPM_BUILD_ROOT%{_javaconfdir}/ant.conf-openjdk21
-
-# OPT_JAR_LIST fragments
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d
-echo "junit hamcrest/core ant/ant-junit" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/junit
-echo "junit hamcrest/core ant/ant-junit4" > $RPM_BUILD_ROOT%{_sysconfdir}/%{name}.d/junit4
+' >%{buildroot}%{_javaconfdir}/ant-openjdk8.conf
+echo 'JAVA_HOME=%{_jvmdir}/jre-11-openjdk' > %{buildroot}%{_javaconfdir}/ant-openjdk11.conf
+echo 'JAVA_HOME=%{_jvmdir}/jre-17-openjdk' > %{buildroot}%{_javaconfdir}/ant-openjdk17.conf
+echo 'JAVA_HOME=%{_jvmdir}/jre-21-openjdk' > %{buildroot}%{_javaconfdir}/ant-openjdk21.conf
+%jp_binding --verbose --variant openjdk8 --ghost ant.conf --target %{_javaconfdir}/ant-openjdk8.conf --provides %{name}-jdk-binding --requires java-1.8.0-openjdk-headless --recommends java-1.8.0-openjdk-devel
+%jp_binding --verbose --variant openjdk11 --ghost ant.conf --target %{_javaconfdir}/ant-openjdk11.conf --provides %{name}-jdk-binding --requires java-11-openjdk-headless --recommends java-11-openjdk-devel
+%jp_binding --verbose --variant openjdk17 --ghost ant.conf --target %{_javaconfdir}/ant-openjdk17.conf --provides %{name}-jdk-binding --requires java-17-openjdk-headless --recommends java-17-openjdk-devel
+%jp_binding --verbose --variant openjdk21 --ghost ant.conf --target %{_javaconfdir}/ant-openjdk21.conf --provides %{name}-jdk-binding --requires java-21-openjdk-headless --recommends java-21-openjdk-devel
+touch %{buildroot}%{_javaconfdir}/ant-unbound.conf
+%jp_binding --verbose --variant unbound --ghost ant.conf --target %{_javaconfdir}/ant-unbound.conf --provides %{name}-jdk-binding
 
 %if %{without bootstrap}
 
@@ -576,6 +621,7 @@ LC_ALL=C.UTF-8 %{ant} -Doffline=true test
 %files
 %doc KEYS README WHATSNEW
 %license LICENSE NOTICE
+%config %{_javaconfdir}/%{name}*.conf
 %config(noreplace) %{_sysconfdir}/%{name}.conf
 %attr(0755,root,root) %{_bindir}/ant
 %dir %{ant_home}/bin
@@ -698,21 +744,22 @@ LC_ALL=C.UTF-8 %{ant} -Doffline=true test
 
 %endif
 
-%files openjdk8
-%config %{_javaconfdir}/%{name}.conf-openjdk8
-
-%files openjdk11
-%config %{_javaconfdir}/%{name}.conf-openjdk11
-
-%files openjdk17
-%config %{_javaconfdir}/%{name}.conf-openjdk17
-
-%files openjdk21
-%config %{_javaconfdir}/%{name}.conf-openjdk21
-
 # -----------------------------------------------------------------------------
 
 %changelog
+* Thu Dec 12 2024 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.10.9-15
+- Implement new Java bindings and fix ant-manual license
+- Resolves: RHEL-68742, RHEL-68743, RHEL-68744, RHEL-68745, RHEL-69519
+
+* Sun Nov 24 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-14
+- Fix test declarations
+
+* Sat Nov 23 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-13
+- Add noarch to ExclusiveArch
+
+* Fri Nov 22 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-12
+- Disable building on i686
+
 * Thu Nov 21 2024 Marián Konček <mkoncek@redhat.com> - 1.10.9-11
 - Fix the usage ot patch macro
 
